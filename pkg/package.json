@@ -1,0 +1,12 @@
+{
+  "name": "sprkl4-wasm",
+  "version": "0.1.0",
+  "files": [
+    "sprkl4_wasm_bg.wasm",
+    "sprkl4_wasm.js",
+    "sprkl4_wasm.d.ts"
+  ],
+  "module": "sprkl4_wasm.js",
+  "types": "sprkl4_wasm.d.ts",
+  "sideEffects": false
+}

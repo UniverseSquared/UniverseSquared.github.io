@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <style>
+      #text-buffer {
+          font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="cpu-state"></p>
+    <textarea id="text-buffer" readonly cols="80" rows="25"></textarea>
+
+    <textarea id="assembly" cols="30" rows="10"></textarea><br>
+
+    <input id="running-checkbox" type="checkbox">running</input>
+    <button id="step-button" type="button">step</button>
+    <button id="reset-button" type="button">reset</button>
+    <button id="assemble-button" type="button">assemble</button>
+    <select id="examples-dropdown">
+      <option value="none">(no example selected)</option>
+    </select>
+    <input id="binary-file" type="file">upload binary</input>
+    <br>
+
+    <input id="speed-slider" type="range" min="0" max="100">execution delay</input>
+
+    <script type="module">
+      import init, {
+          run,
+          load_binary_file,
+          assemble_into_memory,
+          keyboard_event,
+          exec_instruction,
+          reset_cpu,
+          list_examples,
+      } from "./pkg/sprkl4_wasm.js";
+
+      await init();
+      run();
+
+      const binaryInput = document.getElementById("binary-file");
+      binaryInput.addEventListener("change", () => {
+          let file = binaryInput.files[0];
+          let reader = new FileReader();
+          reader.onloadend = (event) => {
+              let bytes = new Int8Array(reader.result);
+              load_binary_file(bytes);
+          };
+
+          reader.readAsArrayBuffer(file);
+      });
+
+      const assembleButton = document.getElementById("assemble-button");
+      const assembly = document.getElementById("assembly");
+      assembleButton.addEventListener("click", () => {
+          assemble_into_memory(assembly.value);
+      });
+
+      let assemblyModified = false;
+      assembly.addEventListener("input", () => {
+          assemblyModified = true;
+      });
+
+      const textBuffer = document.getElementById("text-buffer");
+      textBuffer.addEventListener("keydown", event => {
+          keyboard_event(event);
+      });
+
+      const running = document.getElementById("running-checkbox");
+      const stepButton = document.getElementById("step-button");
+
+      function execCallback() {
+          // the step button is disabled when we are waiting for an interrupt
+          // this is silly and shouldn't work like this but whatever
+          if(running.checked && !stepButton.disabled) {
+              exec_instruction();
+          }
+      }
+
+      let execInterval = setInterval(execCallback, 0);
+
+      const speedSlider = document.getElementById("speed-slider");
+      speedSlider.addEventListener("input", () => {
+          clearInterval(execInterval);
+          execInterval = setInterval(execCallback, speedSlider.value);
+      });
+
+      const resetButton = document.getElementById("reset-button");
+      resetButton.addEventListener("click", () => {
+          reset_cpu();
+      });
+
+      const examplesDropdown = document.getElementById("examples-dropdown");
+      const examples = list_examples();
+      for(let i = 0; i < examples.length; i++) {
+          let example = examples[i];
+          let option = document.createElement("option");
+          option.value = i;
+          option.innerHTML = example.name;
+
+          examplesDropdown.appendChild(option);
+      }
+
+      examplesDropdown.addEventListener("change", e => {
+          let option = examplesDropdown.options[examplesDropdown.selectedIndex];
+          if(option.value != "none") {
+              if(assemblyModified) {
+                  if(!confirm("the assembly has been modified. are you sure you want to load an example?")) {
+                      return;
+                  }
+              }
+
+              let index = parseInt(option.value);
+              assembly.value = examples[index].source;
+          }
+      });
+    </script>
+  </body>
+</html>
